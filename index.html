@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Penalty Duel 3D</title>
+<style>
+:root{--bg:#071b24;--panel:#102d38;--lime:#b8ff57;--white:#f4fbff;--muted:#a8c1ca}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(ellipse at 50% 10%,#235361,#071b24 70%);color:var(--white);font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+main{max-width:1000px;margin:auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+h1{font-size:clamp(22px,4vw,34px);margin:0;letter-spacing:.04em} h1 span{color:var(--lime)}
+.pill{background:#183c48;border:1px solid #38616c;border-radius:999px;padding:7px 12px;color:var(--muted);font-size:13px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px}
+.stage{position:relative;background:#0b252b;border:1px solid #39616a;border-radius:18px;overflow:hidden;box-shadow:0 18px 55px #0008}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:manipulation}
+.hud{position:absolute;inset:12px 12px auto;display:flex;justify-content:space-between;pointer-events:none;gap:8px}
+.hud span{background:#06171dcc;border:1px solid #ffffff26;padding:7px 10px;border-radius:10px;font-size:13px}
+.side{background:#102d38;border:1px solid #315662;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px}
+h2{font-size:16px;margin:0 0 2px;color:var(--lime)}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+select,button{font:inherit;color:var(--white);background:#1b414d;border:1px solid #416873;border-radius:10px;padding:10px;width:100%}
+button{cursor:pointer;transition:.15s}button:hover{border-color:var(--lime);transform:translateY(-1px)}button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.tech{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}.tech button{font-size:12px;padding:9px 4px}
+.tech button.active{background:var(--lime);color:#14212a;border-color:var(--lime);font-weight:800}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#shoot{background:var(--lime);color:#14212a;border:0;font-weight:900}
+#dive{background:#245565}
+.status{background:#0a2029;border:1px solid #315662;border-radius:12px;padding:11px;min-height:68px;font-size:14px;line-height:1.4}
+.score{display:flex;justify-content:space-between;align-items:center;background:#0a2029;border-radius:12px;padding:10px}
+.score strong{font-size:25px;color:var(--lime)}
+.small{font-size:12px;color:var(--muted);line-height:1.45}
+footer{color:#8eabb5;font-size:11px;text-align:center;margin:12px}
+@media(max-width:720px){.layout{grid-template-columns:1fr}.side{order:2}.stage{order:1}main{padding:9px}.side{gap:10px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}.controls>div{min-width:0}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>PENALTY <span>DUEL</span></h1><div class="pill">3D-style shootout · Player vs Bot</div></header>
+<div class="layout">
+<section class="stage">
+<canvas id="game" width="960" height="600" aria-label="Penalty shootout game field"></canvas>
+<div class="hud"><span id="turn">YOUR TURN · SHOOT</span><span id="round">ROUND 1</span></div>
+</section>
+<aside class="side">
+<div class="score"><div><label>YOU</label><b id="youName">Blue FC</b></div><strong id="score">0 – 0</strong><div style="text-align:right"><label>BOT</label><b>CPU FC</b></div></div>
+<div class="controls">
+<div><label for="team">Choose your team</label><select id="team"><option>Blue FC</option><option>Real Madrid</option><option>Barcelona</option><option>Manchester City</option><option>Liverpool</option><option>Paris Saint-Germain</option><option>Brazil</option><option>Argentina</option><option>France</option><option>Portugal</option></select></div>
+<div><label for="level">Bot difficulty</label><select id="level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+</div>
+<div><h2>Choose your shot</h2><div class="tech">
+<button class="active" data-tech="knuckle">Knuckleball</button><button data-tech="trivela">Trivela</button><button data-tech="curve">Curve</button>
+</div></div>
+<div class="status" id="rolePanel"><h2 id="roleTitle">YOU ARE THE SHOOTER</h2><p class="small" id="roleHelp">Aim at the goal, choose a shot style and shoot.</p></div>
+<div><h2>How far do you want to dive?</h2><label for="divePower">Dive reach: <b id="divePowerLabel">70%</b></label><input id="divePower" type="range" min="20" max="100" value="70" step="5" style="accent-color:#b8ff57;padding:0"></div>
+<div class="actions"><button id="shoot">SHOOT ⚽</button><button id="dive" disabled>DIVE 🧤</button></div>
+<div><h2>Choose your dive direction</h2><div class="actions"><button class="diveDir" data-dir="-1">← LEFT</button><button class="diveDir" data-dir="1">RIGHT →</button></div><button class="diveDir" data-dir="0" style="margin-top:7px">DIVE CENTER</button></div>
+<div class="status" id="status" aria-live="polite">Pick a team and aim your first penalty!</div>
+<button id="restart">↻ Restart match</button>
+<div class="small">A shootout lasts 10 turns (5 each). If scores are level, sudden-death rounds begin.</div>
+</aside>
+</div>
+<footer>Made for Safari · No sign-in required · Works offline after this file is saved</footer>
+</main>
+<script>
+(()=>{
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+const $=id=>document.getElementById(id);
+let phase='youShoot',tech='knuckle',aim={x:0,y:0},you=0,bot=0,turn=0,round=1,anim=null,chosenDive=0,divePower=70,ended=false;
+const W=960,H=600;
+function poly(points,fill,stroke){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=4;ctx.stroke()}}
+function line(points,color,width=3){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke()}
+function ellipse(x,y,rx,ry,color){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ const sky=ctx.createLinearGradient(0,0,0,300);sky.addColorStop(0,'#173c4b');sky.addColorStop(1,'#6c9b9a');ctx.fillStyle=sky;ctx.fillRect(0,0,W,300);
+ // crowd
+ for(let y=115;y<245;y+=19){for(let x=20;x<W;x+=17){let n=(x*7+y*11)%5;ctx.fillStyle=['#d3c16b','#d86e63','#d7e4e2','#426d83','#8da7b0'][n];ctx.fillRect(x,y,10,7)}}
+ // pitch perspective
+ poly([[0,600],[960,600],[690,255],[270,255]],'#247448');
+ for(let i=0;i<7;i++){let y=270+i*52;line([[480-(y-255)*1.1,y],[480+(y-255)*1.1,y]],'#ffffff18',2)}
+ // penalty box and spot
+ line([[300,255],[220,405],[740,405],[660,255]],'#d8f0df',3);
+ line([[365,255],[325,330],[635,330],[595,255]],'#d8f0df',2);
+ ellipse(480,376,5,3,'#fff');
+ // goal
+ ctx.fillStyle='#eaf5f2';ctx.fillRect(282,88,396,12);ctx.fillRect(282,88,12,174);ctx.fillRect(666,88,12,174);
+ ctx.strokeStyle='#e7f1ee';ctx.lineWidth=2;
+ for(let x=310;x<675;x+=28){line([[x,100],[x,255]],'#d8e6e4',1)}
+ for(let y=120;y<255;y+=24)line([[294,y],[666,y]],'#d8e6e4',1);
+ // goal back shade
+ poly([[294,100],[666,100],[650,245],[310,245]],'#ffffff0a');
+ // keeper
+ const diveT=anim?Math.min(1,anim.t*1.35):0;
+ const kx=480+(anim?anim.keeperX*diveT:0), ky=218;
+ ctx.save();ctx.translate(kx,ky);
+ if(anim)ctx.rotate(anim.keeperX*.0012*diveT);
+ ellipse(0,-29,15,17,'#d8a77c');ctx.fillStyle='#e7a33a';ctx.fillRect(-18,-12,36,48);
+ line([[-12,0],[-37,20],[-48,8]],'#e7a33a',11);line([[12,0],[37,20],[48,8]],'#e7a33a',11);
+ line([[-9,35],[-20,68]],'#172b38',13);line([[9,35],[20,68]],'#172b38',13);
+ ellipse(-49,8,9,8,'#d8f2ff');ellipse(49,8,9,8,'#d8f2ff');
+ ctx.restore();
+ // shooter silhouette
+ ellipse(480,454,12,14,'#d8a77c');ctx.fillStyle='#2b6cbb';ctx.fillRect(465,468,30,48);line([[470,512],[457,548]],'#152c3c',12);line([[490,512],[504,548]],'#152c3c',12);
+ // ball
+ let bx=480,by=525,r=13;
+ if(anim){let t=Math.min(1,anim.t);bx=anim.sx+(anim.tx-anim.sx)*t;by=anim.sy+(anim.ty-anim.sy)*t-100*Math.sin(Math.PI*t);r=13*(1-t*.65);if(anim.kind==='shot')bx+=Math.sin(t*Math.PI*2)*(tech==='curve'?48:tech==='trivela'?27:12)}
+ ellipse(bx+4,by+7,r*1.15,r*.48,'#0005');ellipse(bx,by,r,r,'#f5f7f2');line([[bx-r*.6,by-r*.1],[bx-r*.1,by-r*.7],[bx+r*.5,by-r*.45],[bx+r*.65,by+r*.2],[bx,by+r*.6],[bx-r*.6,by-r*.1]],'#26343b',2);
+ if(!anim&&phase==='youShoot'){ctx.fillStyle='#fff';ctx.font='18px system-ui';ctx.textAlign='center';ctx.fillText('TAP THE GOAL TO AIM',480,45);let ax=480+aim.x*165,ay=170+aim.y*72;line([[480,525],[ax,ay]],'#b8ff5780',2);ellipse(ax,ay,7,7,'#b8ff57')}
+ // subtle vignette
+ const v=ctx.createRadialGradient(480,300,220,480,300,650);v.addColorStop(0,'#0000');v.addColorStop(1,'#00131a55');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
+}
+function updateUI(){
+ $('score').textContent=`${you} – ${bot}`;$('youName').textContent=$('team').value;
+ $('turn').textContent=phase==='youShoot'?'YOU · SHOOTER':phase==='youKeep'?'YOU · GOALKEEPER':'MATCH COMPLETE';
+ $('round').textContent=`ROUND ${round}`;
+ $('roleTitle').textContent=phase==='youShoot'?'YOU ARE THE SHOOTER':phase==='youKeep'?'YOU ARE THE GOALKEEPER':'MATCH COMPLETE';
+ $('roleHelp').textContent=phase==='youShoot'?'Choose a shot and tap the goal to aim. After your shot, you will face the bot.':phase==='youKeep'?'The bot is about to shoot. Pick LEFT, CENTER or RIGHT, set your dive reach, then press DIVE.':'Restart to play another shootout.';
+ $('divePowerLabel').textContent=divePower+'%';
+ $('shoot').disabled=phase!=='youShoot'||!!anim||ended;$('dive').disabled=phase!=='youKeep'||!!anim||ended;
+ document.querySelectorAll('.diveDir').forEach(b=>b.disabled=phase!=='youKeep'||!!anim||ended);
+}
+function message(s){$('status').textContent=s}
+function next(){
+ anim=null;turn++;
+ if(turn>=10 && you!==bot){ended=true;phase='done';message(you>bot?'Full time! You win the shootout! 🏆':'Full time! The bot wins this shootout.');}
+ else if(turn>=10 && you===bot){round++;message('Scores level! Sudden death — next goal wins.');phase='youShoot';}
+ else phase=(turn%2===0)?'youShoot':'youKeep';
+ // pattern: you shoot, bot shoots, repeat. During bot shoot user keeps.
+ if(turn%2===1)phase='youKeep';else phase='youShoot';
+ updateUI();draw();
+}
+function animateShot(kind,tx,ty,goal,keeperX=0){
+ anim={kind,t:0,sx:480,sy:525,tx,ty,goal,keeperX};
+ const start=performance.now(),duration=850;
+ function frame(now){if(!anim)return;anim.t=Math.min(1,(now-start)/duration);draw();if(anim.t<1)requestAnimationFrame(frame);else{
+   if(kind==='shot'){if(goal){you++;message(`${tech.toUpperCase()}! GOAL! You scored. Now get ready to keep.`)}else message('Saved or off target! Now the bot takes its turn.')}
+   else {if(goal){bot++;message('The bot scores! Your turn to take the next penalty.')}else message('WHAT A SAVE! You stopped the bot. Your turn to shoot.')}
+   updateUI();setTimeout(next,1050);
+ }}requestAnimationFrame(frame);
+}
+function shoot(){
+ if(phase!=='youShoot'||anim||ended)return;
+ const tx=480+aim.x*170,ty=170+aim.y*85;
+ const onTarget=Math.abs(aim.x)<1.12&&aim.y> -1.3&&aim.y<1.3&&Math.random()>(tech==='knuckle'?.12:tech==='trivela'?.16:.2);
+ // The computer goalkeeper guesses a side and dives during every player shot.
+ const keeperGuess=Math.random()<0.68?Math.sign(aim.x||1):([-1,0,1][Math.floor(Math.random()*3)]);
+ const keeperX=keeperGuess*105;
+ const keeperSaved=onTarget&&Math.abs(aim.x*170-keeperX)<48&&Math.random()<0.72;
+ const goal=onTarget&&!keeperSaved;
+ animateShot('shot',tx,ty,goal,keeperX);
+}
+function botShot(){
+ if(phase!=='youKeep'||anim||ended)return;
+ const level=$('level').value,accuracy=level==='easy'?.48:level==='medium'?.68:.84;
+ const target=(Math.random()*2-1)*(level==='hard'?.85:1.1);
+ const reach=(divePower/100)*(level==='hard'?0.55:level==='medium'?0.72:0.9);
+ const saved=Math.abs(target-chosenDive*reach)<(level==='hard'?.30:level==='medium'?.43:.62) && Math.random()<accuracy;
+ const goal=!saved;
+ animateShot('bot',480+target*170,170+(Math.random()-.5)*100,goal,chosenDive*115*(divePower/100));
+}
+c.addEventListener('pointerdown',e=>{
+ if(phase!=='youShoot'||anim)return;
+ const r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;
+ if(y<300&&x>260&&x<700){aim.x=Math.max(-1,Math.min(1,(x-480)/170));aim.y=Math.max(-1,Math.min(1,(y-170)/85));draw()}
+});
+document.querySelectorAll('[data-tech]').forEach(b=>b.addEventListener('click',()=>{tech=b.dataset.tech;document.querySelectorAll('[data-tech]').forEach(x=>x.classList.toggle('active',x===b))}));
+document.querySelectorAll('.diveDir').forEach(b=>b.addEventListener('click',()=>{chosenDive=Number(b.dataset.dir);document.querySelectorAll('.diveDir').forEach(x=>x.style.outline=x===b?'2px solid #b8ff57':'none')}));
+$('shoot').onclick=shoot;$('dive').onclick=botShot;
+$('divePower').addEventListener('input',e=>{divePower=Number(e.target.value);$('divePowerLabel').textContent=divePower+'%';});
+$('team').onchange=()=>{$('youName').textContent=$('team').value};
+$('restart').onclick=()=>{you=0;bot=0;turn=0;round=1;anim=null;ended=false;phase='youShoot';aim={x:0,y:0};chosenDive=0;divePower=70;$('divePower').value=70;$('divePowerLabel').textContent='70%';message('New match! Pick your shot and aim for the goal.');updateUI();draw()};
+updateUI();draw();
+})();
+</script>
+</body></html>
